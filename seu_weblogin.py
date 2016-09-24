@@ -4,47 +4,41 @@ login and logout w.seu.edu.cn with Python
 
 # !/usr/bin/env python
 # -*- coding: utf-8 -*-
-import urllib
-import httplib
+import urllib.request as urllib
+import urllib.parse
+import http.client as httplib
 import sys
 import time
 import getpass
-
+import json
 USERNAME = 'your_username'
 PASSWORD = 'your_password'
+
+
 HEADERS = {
     'Content-Type': "application/json; charset=utf-8",
     'dataType': "json",
     'cache': False
 }
+
+
+login_header={
+
+'Content-Type':'application/x-www-form-urlencoded',
+'Host':'w.seu.edu.cn',
+'Origin':'https://w.seu.edu.cn',
+'Referer':'https://w.seu.edu.cn/',
+
+'X-Requested-With':'XMLHttpRequest',
+                'dataType': "json",
+                'cache': 'false'
+}
 ADDRESS = "w.seu.edu.cn"
-INIT_URL = "/portal/init.php"
-LOGIN_URL = "/portal/login.php"
-LOGOUT_URL = "/portal/logout.php"
+INIT_URL = "/index.php/index/init"
+LOGIN_URL = "/index.php/index/login"
+LOGOUT_URL = "/index.php/index/logout"
 
 
-def print_result(content):
-    """Print response from server.
-    Print Username, IP address, Login Time, Login Location
-    """
-    try:
-        if 'error' in content:
-            dresq = eval(content.encode('utf-8'))
-            # decode utf-8 character
-            print "Error:" + unicode(dresq["error"]).decode('unicode-escape')
-        else:
-            # fuction eval will convert json to dict
-            # need to replace 'null' otherwise eval will return error
-            dresq = eval(content.replace('null', "'w.seu.edu.cn'").encode('utf-8'))
-            # print username & IP address
-            print "Username: " + dresq['login_username']
-            print "IP Address: " + dresq['login_ip']
-            print "Login Time: " + time.strftime('%H:%M:%S', time.gmtime(dresq['login_time']))
-            print "Login Location: " + unicode(dresq['login_location']).decode('unicode-escape')
-            print "Expire Time: " + unicode(dresq['login_expire']).decode('unicode-escape') + \
-                '(remain ' + unicode(dresq['login_remain']).decode('unicode-escape') + ' days)'
-    except:
-        print "Print error! Maybe something is wrong in UTF-8 encode and json decode"
 
 
 def login(username, password):
@@ -55,25 +49,25 @@ def login(username, password):
     conn = httplib.HTTPSConnection(ADDRESS)
     conn.request("GET", INIT_URL, headers=HEADERS)
     # get response from web server
-    content = conn.getresponse().read()
+    temp=conn.getresponse().read()[3:]
+
+    content = json.loads(temp.decode())
     # make sure if user is login
-    if 'notlogin' not in content:
-        print "Already login!"
-        content = content[3:]
-        print_result(content)
-        return
-    params = {'username': username, 'password': password}
+    print(content)
+    params = {'username': username, 'password': password,'enablemacauth':0}
     try:
-        conn = httplib.HTTPSConnection(ADDRESS)
-        conn.request("POST", LOGIN_URL, urllib.urlencode(params), headers=HEADERS)
+
+        conn.request("POST", LOGIN_URL, body=urllib.parse.urlencode(params), headers=login_header)
         # get response from web server
+
         content = conn.getresponse().read()
+
         # remove useless header
-        content = content[5:]
-        print_result(content)
+        content = content[3:]
+        print(json.loads(content.decode()))
         conn.close()
     except:
-        print "Post error!"
+       print ("Post error!")
 
 
 def logout():
@@ -84,9 +78,9 @@ def logout():
         conn = httplib.HTTPSConnection(ADDRESS)
         conn.request("POST", LOGOUT_URL, headers=HEADERS)
         conn.close()
-        print "Logout Sucess!!"
+        print ("Logout Sucess!!")
     except:
-        print "Post error!"
+        print ("Post error!")
 
 
 def status():
@@ -100,20 +94,21 @@ def status():
         # get response from web server
         content = conn.getresponse().read()
         # make sure if user is login
-        if 'notlogin' in content:
-            print "Not login!"
+        if b'notlogin' in content:
+            print ("Not login!")
             return
         # remove useless header, http header here is different from login.
         content = content[3:]
-        print_result(content)
+        print(json.loads(content.decode()))
     except:
-        print "Get Status error!"
+        print ("Get Status error!")
 
 
 if __name__ == '__main__':
+
     if len(sys.argv) <= 1:
-        print "No param is inputed. Please input params."
-        print "Usage python %s [login | logout | status | help]" % sys.argv[0]
+        print ("No param is inputed. Please input params.")
+        print ("Usage python %s [login | logout | status | help]" % sys.argv[0])
     elif sys.argv[1] == 'login':
         try:
             # for command "python seu_weblogin.py login username password"
@@ -126,7 +121,7 @@ if __name__ == '__main__':
             INPUT_PASSWORD = PASSWORD
             if 'your' in USERNAME or 'your' in PASSWORD:
                 # reqire username and password from std input
-                INPUT_USERNAME = raw_input("Username:")
+                INPUT_USERNAME = input("Username:")
                 # don't show my password on screen
                 INPUT_PASSWORD = getpass.getpass("Password:")
         login(INPUT_USERNAME, INPUT_PASSWORD)
@@ -135,5 +130,5 @@ if __name__ == '__main__':
     elif sys.argv[1] == 'status':
         status()
     else:
-        print "Input param is not supported!"
-        print "Usage python %s [login | logout | status | help]" % sys.argv[0]
+        print ("Input param is not supported!")
+        print ("Usage python %s [login | logout | status | help]" % sys.argv[0])
